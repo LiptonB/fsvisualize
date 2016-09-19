@@ -1,3 +1,4 @@
+<<<<<<< f25f06d127f8d4d596cbf2f3955a0f8b8c6ad33f
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -87,3 +88,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# Project-specific files
+sample.img
