@@ -1,7 +1,10 @@
 <html>
 	<body>
-		{% for structure in structures %}
-			{{ structure.name }}: {{ structure.contents }}
+		{% for struct in structs %}
+		<h2>{{ struct.name }}</h2>
+			{% for field in struct.fields %}
+				<div>{{ field.description }}: {{ field.contents }}</div>
+			{% endfor %}
 		{% endfor %}
 	</body>
 </html>
