@@ -21,5 +21,4 @@ def visualize(path):
         for component in components:
             struct = struct[component]
             structs.append(struct.as_dict())
-        #return render_template('visualize.html', structs=structs)
-        return str(structs)
+        return render_template('visualize.html', structs=structs)

@@ -10,7 +10,7 @@ class Field(object):
     def as_dict(self, content_bytes):
         field_dict = {
             'description': self.description,
-            'link?': self.constructor is not None,
+            'link': self.constructor is not None,
             'contents': self.formatter(content_bytes)
         }
 
@@ -60,35 +60,40 @@ class Structure(object):
 
 def hexencode(s):
     enc = s.encode('hex')
+    return enc
+
+
+def hextrunc(s):
+    enc = s.encode('hex')
     if len(enc) > 20:
         return enc[:6] + '...' + enc[-6:]
     else:
         return enc
 
+
 class MBR(Structure):
-    _PARTITION = FieldGroup('partition', [
-        Field('status', 1, hexencode, None),
-        Field('start_chs', 3, hexencode, True),
-        Field('type', 1, hexencode, None),
-        Field('end_chs', 3, hexencode, None),
-        Field('start_lba', 4, hexencode, None),
-        Field('length', 4, hexencode, None),
+    _PARTITION = FieldGroup('Partition Table Entry', [
+        Field('status', 1, hextrunc, None),
+        Field('start_chs', 3, hextrunc, True),
+        Field('type', 1, hextrunc, None),
+        Field('end_chs', 3, hextrunc, None),
+        Field('start_lba', 4, hextrunc, None),
+        Field('length', 4, hextrunc, None),
     ])
     FIELDS = FieldGroup('Master Boot Record', [
-        Field('code', 446, hexencode, None),
+        Field('code', 446, hextrunc, None),
         _PARTITION,
         _PARTITION,
         _PARTITION,
         _PARTITION,
-        Field('signature', 2, hexencode, None),
+        Field('signature', 2, hextrunc, None),
     ])
 
-class Partition(Structure):
-    FIELDS = FieldGroup('Partition Table', [
-        Field('status', 1, hexencode, None),
-        Field('start_chs', 3, hexencode, None),
-        Field('type', 1, hexencode, None),
-        Field('end_chs', 3, hexencode, None),
-        Field('start_lba', 4, hexencode, None),
-        Field('length', 4, hexencode, None),
+    def partition(self, start_lba):
+        start_byte = start_lba * 512 + 1024
+        return Superblock(self.image, start_byte)
+
+class Superblock(Structure):
+    FIELDS = FieldGroup('Ext4 Superblock', [
+        Field('stuff', 1024*4, hexencode, None)
     ])

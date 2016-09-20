@@ -1,10 +1,26 @@
 <html>
+	<head>
+<style>
+div {
+	border-style: solid;
+}
+</style>
+	</head>
 	<body>
 		{% for struct in structs %}
-		<h2>{{ struct.name }}</h2>
-			{% for field in struct.fields %}
-				<div>{{ field.description }}: {{ field.contents }}</div>
+		<h2>{{ struct.description }}</h2>
+		<div>
+			{% for field in struct.subfields recursive %}
+			{{ field.description }}:
+			<div>
+				{{ loop(field.subfields) }}
+				{% if field.link %}<a href="./{{ field.link }}">{% endif %}
+				{{ field.contents }}
+				{% if field.link %}</a>{% endif %}
+			</div>
 			{% endfor %}
+			{{ struct.contents }}
+		</div>
 		{% endfor %}
 	</body>
 </html>
