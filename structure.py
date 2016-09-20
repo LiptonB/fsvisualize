@@ -129,15 +129,9 @@ def hexencode(s):
 def hextrunc(s):
     enc = s.encode('hex')
     if len(enc) > 20:
-        return enc[:6] + '...' + enc[-6:]
-    else:
-        return enc
-
-
-class Superblock(Structure):
-    FIELDS = FieldGroup('Ext4 Superblock', [
-        Field('stuff', 1024*4, hexencode, None, None)
-    ])
+        enc = enc[:6] + '...' + enc[-6:]
+    enc = '0x' + enc
+    return enc
 
 
 def bytes_to_int(s):
@@ -145,11 +139,86 @@ def bytes_to_int(s):
     s = '\x00' * missing + s
     return struct.unpack('>I', s)[0]
 
+def le_bytes_to_int(s):
+    missing = 4 - len(s)
+    s = s + '\x00' * missing
+    return struct.unpack('<I', s)[0]
+
 
 def block_offset(s):
     block_offset = bytes_to_int(s)
-    byte_offset = block_offset * 2
+    byte_offset = block_offset * 2 + 1024
     return byte_offset
+
+
+class Superblock(Structure):
+    _SUPERBLOCK = FieldGroup('Ext4 Superblock', [
+        Field('s_inodes_count', 4, le_bytes_to_int, None, None),
+        Field('s_blocks_count_lo', 4, le_bytes_to_int, None, None),
+        Field('s_r_blocks_count_lo', 4, le_bytes_to_int, None, None),
+        Field('s_free_blocks_count_lo', 4, le_bytes_to_int, None, None),
+        Field('s_free_inodes_count', 4, le_bytes_to_int, None, None),
+        Field('s_first_data_block', 4, le_bytes_to_int, None, None),
+        Field('s_log_block_size', 4, le_bytes_to_int, None, None),
+        Field('s_log_cluster_size', 4, le_bytes_to_int, None, None),
+        Field('s_blocks_per_group', 4, le_bytes_to_int, None, None),
+        Field('s_clusters_per_group', 4, le_bytes_to_int, None, None),
+        Field('s_inodes_per_group', 4, le_bytes_to_int, None, None),
+        Field('s_mtime', 4, le_bytes_to_int, None, None),
+        Field('s_wtime', 4, le_bytes_to_int, None, None),
+        Field('s_mnt_count', 2, le_bytes_to_int, None, None),
+        Field('s_max_mnt_count', 2, le_bytes_to_int, None, None),
+        Field('s_magic', 2, hextrunc, None, None),
+        Field('s_state', 2, hextrunc, None, None),
+        Field('s_errors', 2, hextrunc, None, None),
+        Field('s_minor_rev_level', 2, hextrunc, None, None),
+        Field('s_lastcheck', 4, le_bytes_to_int, None, None),
+        Field('s_checkinterval', 4, hextrunc, None, None),
+        Field('s_creator_os', 4, hextrunc, None, None),
+        Field('s_rev_level', 4, hextrunc, None, None),
+        Field('s_def_resuid', 2, hextrunc, None, None),
+        Field('s_def_resgid', 2, hextrunc, None, None),
+        Field('s_first_ino', 4, hextrunc, None, None),
+        Field('s_inode_size', 2, hextrunc, None, None),
+        Field('s_block_group_nr', 2, hextrunc, None, None),
+        Field('s_feature_compat', 4, hextrunc, None, None),
+        Field('s_feature_incompat', 4, hextrunc, None, None),
+        Field('s_feature_ro_compat', 4, hextrunc, None, None),
+        Field('s_uuid', 16, hextrunc, None, None),
+        Field('s_volume_name', 16, str, None, None),
+        Field('s_last_mounted', 64, str, None, None),
+        Field('s_algorithm_usage_bitmap', 4, hextrunc, None, None),
+        Field('don\'t care', 1024-204, lambda x:'', None, None),
+    ])
+    _GROUP_DESCRIPTOR = FieldGroup('Ext4 Group Descriptor', [
+        Field('bg_block_bitmap_lo', 4, hextrunc, None, None),
+        Field('bg_inode_bitmap_lo', 4, hextrunc, None, None),
+        Field('bg_inode_table_lo', 4, hextrunc, None, None),
+        Field('bg_free_blocks_count_lo', 2, le_bytes_to_int, None, None),
+        Field('bg_free_inodes_count_lo', 2, le_bytes_to_int, None, None),
+        Field('bg_used_dirs_count_lo', 2, le_bytes_to_int, None, None),
+        Field('bg_flags', 2, hextrunc, None, None),
+        Field('don\'t care', 4, hextrunc, None, None),
+        Field('don\'t care', 2, hextrunc, None, None),
+        Field('don\'t care', 2, hextrunc, None, None),
+        Field('don\'t care', 2, hextrunc, None, None),
+        Field('don\'t care', 2, hextrunc, None, None),
+        Field('don\'t care', 4, hextrunc, None, None),
+        Field('don\'t care', 4, hextrunc, None, None),
+        Field('don\'t care', 4, hextrunc, None, None),
+        Field('don\'t care', 2, hextrunc, None, None),
+        Field('don\'t care', 2, hextrunc, None, None),
+        Field('don\'t care', 2, hextrunc, None, None),
+        Field('don\'t care', 2, hextrunc, None, None),
+        Field('don\'t care', 4, hextrunc, None, None),
+        Field('don\'t care', 2, hextrunc, None, None),
+        Field('don\'t care', 2, hextrunc, None, None),
+        Field('padding', 4, hextrunc, None, None),
+    ])
+    FIELDS = FieldGroup('Ext4 Filesystem', [
+        _SUPERBLOCK,
+        _GROUP_DESCRIPTOR,
+    ])
 
 
 class MBR(Structure):
