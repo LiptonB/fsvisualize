@@ -111,6 +111,7 @@ class Structure(object):
         subclass = self.fields.constructor
         interpreter = self.fields.interpreter
         offset = interpreter(self.content)
+        print 'Instantiating %s at offset 0x%x' % (subclass.__name__, offset)
         return subclass.from_offset(self.image, offset)
 
 
@@ -145,13 +146,19 @@ def bytes_to_int(s):
     return struct.unpack('>I', s)[0]
 
 
+def block_offset(s):
+    block_offset = bytes_to_int(s)
+    byte_offset = block_offset * 2
+    return byte_offset
+
+
 class MBR(Structure):
     _PARTITION = FieldGroup('Partition Table Entry', [
         Field('status', 1, hextrunc, None, None),
         Field('start_chs', 3, hextrunc, None, None),
         Field('type', 1, hextrunc, None, None),
         Field('end_chs', 3, hextrunc, None, None),
-        Field('start_lba', 4, hextrunc, Superblock, bytes_to_int),
+        Field('start_lba', 4, hextrunc, Superblock, block_offset),
         Field('length', 4, hextrunc, None, None),
     ])
     FIELDS = FieldGroup('Master Boot Record', [
