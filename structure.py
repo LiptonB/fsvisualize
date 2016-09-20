@@ -1,5 +1,13 @@
 import collections
 
+class Error(Exception):
+    pass
+
+
+class UsageError(Exception):
+    pass
+
+
 class Field(object):
     def __init__(self, description, length, formatter, constructor):
         self.description = description
@@ -46,23 +54,60 @@ class FieldGroup(object):
         contents = content_bytes[start:start+self.fields[field_id].length]
         return contents
 
-class Structure(object):
-    FIELDS = FieldGroup('__unknown__', [])
+    def constructor(self, image, offset):
+        return Structure(image, offset, self.fields)
 
-    def __init__(self, image, offset):
+    def __getitem__(self, key):
+        return self.fields[key]
+
+
+class Structure(object):
+    FIELDS = None
+
+    def __init__(self, image, offset, fields=None):
         self.image = image
         self.offset = offset
+        if self.FIELDS is None:
+            if fields is None:
+                raise UsageError('No fields provided to plain Structure')
+            else:
+                self.fields = fields
+        else:
+            if fields is not None:
+                raise UsageError(
+                    'Fields should not be provided when instantiating Structure'
+                    ' subclasses that define FIELDS')
+            else:
+                self.fields = self.FIELDS
+
+    def content(self):
+        content = self.image[self.offset:self.offset+self.length()]
+        return content
 
     def as_dict(self):
-        content = self.image[self.offset:self.offset+self.length()]
-        struct_dict = self.FIELDS.as_dict(content, '')
+        struct_dict = self.fields.as_dict(self.content(), '')
         return struct_dict
 
-    def __getitem__(self, item):
-        pass
+    #def sub_struct(self, descriptor):
+    #    subfields = descriptor.split('.')
+    #    field = self.fields
+    #    for subfield_id in subfields:
+    #        field = field.get_subfield(subfield_id)
+
+    def __getitem__(self, key):
+        constructor = self.fields[key].constructor
+        subfield = constructor(self.image, self.offset)
+        return subfield
+
+    def sub_struct(self, descriptor):
+        subfields = descriptor.split('.')
+        struct = self
+        for subfield_id in subfields:
+            struct = struct[int(subfield_id)]
+        return struct
 
     def length(self):
-        return self.FIELDS.length
+        return self.fields.length
 
 
 def hexencode(s):
@@ -76,6 +121,12 @@ def hextrunc(s):
         return enc[:6] + '...' + enc[-6:]
     else:
         return enc
+
+
+class Superblock(Structure):
+    FIELDS = FieldGroup('Ext4 Superblock', [
+        Field('stuff', 1024*4, hexencode, None)
+    ])
 
 
 class MBR(Structure):
@@ -94,13 +145,4 @@ class MBR(Structure):
         _PARTITION,
         _PARTITION,
         Field('signature', 2, hextrunc, None),
-    ])
-
-    def partition(self, start_lba):
-        start_byte = start_lba * 512 + 1024
-        return Superblock(self.image, start_byte)
-
-class Superblock(Structure):
-    FIELDS = FieldGroup('Ext4 Superblock', [
-        Field('stuff', 1024*4, hexencode, None)
     ])
