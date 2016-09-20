@@ -7,14 +7,17 @@ class Field(object):
         self.formatter = formatter
         self.constructor = constructor
 
-    def as_dict(self, content_bytes):
+    def as_dict(self, content_bytes, path):
         field_dict = {
             'description': self.description,
-            'link': self.constructor is not None,
             'contents': self.formatter(content_bytes)
         }
 
+        if self.constructor is not None:
+            field_dict['link'] = path
+
         return field_dict
+
 
 class FieldGroup(object):
     def __init__(self, description, fields):
@@ -22,11 +25,15 @@ class FieldGroup(object):
         self.fields = fields
         self.length = sum(field.length for field in fields)
         
-    def as_dict(self, content_bytes):
+    def as_dict(self, content_bytes, path):
         subfields = []
         for i, field in enumerate(self.fields):
             contents = self.field_contents(content_bytes, i)
-            subfields.append(field.as_dict(contents))
+            if path:
+                sub_path = '%s/%d' % (path, i)
+            else:
+                sub_path = str(i)
+            subfields.append(field.as_dict(contents, sub_path))
 
         fg_dict = {
             'description': self.description,
@@ -48,10 +55,10 @@ class Structure(object):
 
     def as_dict(self):
         content = self.image[self.offset:self.offset+self.length()]
-        struct_dict = self.FIELDS.as_dict(content)
+        struct_dict = self.FIELDS.as_dict(content, '')
         return struct_dict
 
-    def __getitem__(self):
+    def __getitem__(self, item):
         pass
 
     def length(self):

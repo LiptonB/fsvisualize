@@ -14,7 +14,7 @@ div {
 			{{ field.description }}:
 			<div>
 				{{ loop(field.subfields) }}
-				{% if field.link %}<a href="./{{ field.link }}">{% endif %}
+				{% if field.link %}<a href="{{ field.link }}">{% endif %}
 				{{ field.contents }}
 				{% if field.link %}</a>{% endif %}
 			</div>
