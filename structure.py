@@ -30,7 +30,7 @@ class FieldGroup(object):
         for i, field in enumerate(self.fields):
             contents = self.field_contents(content_bytes, i)
             if path:
-                sub_path = '%s/%d' % (path, i)
+                sub_path = '%s.%d' % (path, i)
             else:
                 sub_path = str(i)
             subfields.append(field.as_dict(contents, sub_path))
