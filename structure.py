@@ -1,19 +1,25 @@
 import collections
+import struct
 
 class Error(Exception):
     pass
 
 
-class UsageError(Exception):
+class UsageError(Error):
+    pass
+
+
+class IncorrectLevelError(Error):
     pass
 
 
 class Field(object):
-    def __init__(self, description, length, formatter, constructor):
+    def __init__(self, description, length, formatter, constructor, interpreter):
         self.description = description
         self.length = length
         self.formatter = formatter
         self.constructor = constructor
+        self.interpreter = interpreter
 
     def as_dict(self, content_bytes, path):
         field_dict = {
@@ -50,12 +56,18 @@ class FieldGroup(object):
         return fg_dict
 
     def field_contents(self, content_bytes, field_id):
-        start = sum(field.length for field in self.fields[0:field_id])
-        contents = content_bytes[start:start+self.fields[field_id].length]
+        start = self.field_offset(field_id)
+        length = self.field_length(field_id)
+        contents = content_bytes[start:start+length]
         return contents
 
-    def constructor(self, image, offset):
-        return Structure(image, offset, self.fields)
+    def field_offset(self, field_id):
+        offset = sum(field.length for field in self.fields[0:field_id])
+        return offset
+
+    def field_length(self, field_id):
+        length = self.fields[field_id].length
+        return length
 
     def __getitem__(self, key):
         return self.fields[key]
@@ -64,39 +76,25 @@ class FieldGroup(object):
 class Structure(object):
     FIELDS = None
 
-    def __init__(self, image, offset, fields=None):
+    def __init__(self, image, content):
         self.image = image
-        self.offset = offset
-        if self.FIELDS is None:
-            if fields is None:
-                raise UsageError('No fields provided to plain Structure')
-            else:
-                self.fields = fields
-        else:
-            if fields is not None:
-                raise UsageError(
-                    'Fields should not be provided when instantiating Structure'
-                    ' subclasses that define FIELDS')
-            else:
-                self.fields = self.FIELDS
+        self.content = content
+        self.fields = self.FIELDS
 
-    def content(self):
-        content = self.image[self.offset:self.offset+self.length()]
-        return content
+    @classmethod
+    def from_offset(cls, image, offset):
+        content = image[offset:offset+cls.FIELDS.length]
+        return cls(image, content)
 
     def as_dict(self):
-        struct_dict = self.fields.as_dict(self.content(), '')
+        struct_dict = self.fields.as_dict(self.content, '')
         return struct_dict
 
-    #def sub_struct(self, descriptor):
-    #    subfields = descriptor.split('.')
-    #    field = self.fields
-    #    for subfield_id in subfields:
-    #        field = field.get_subfield(subfield_id)
-
     def __getitem__(self, key):
-        constructor = self.fields[key].constructor
-        subfield = constructor(self.image, self.offset)
+        start = self.fields.field_offset(key)
+        length = self.fields.field_length(key)
+        subfield_content = self.content[start:start+length]
+        subfield = AnonymousStruct(self.image, subfield_content, self.fields[key])
         return subfield
 
     def sub_struct(self, descriptor):
@@ -108,6 +106,18 @@ class Structure(object):
 
     def length(self):
         return self.fields.length
+
+    def dereference(self):
+        subclass = self.fields.constructor
+        interpreter = self.fields.interpreter
+        offset = interpreter(self.content)
+        return subclass.from_offset(self.image, offset)
+
+
+class AnonymousStruct(Structure):
+    def __init__(self, image, content, fields):
+        super(AnonymousStruct, self).__init__(image, content)
+        self.fields = fields
 
 
 def hexencode(s):
@@ -125,24 +135,30 @@ def hextrunc(s):
 
 class Superblock(Structure):
     FIELDS = FieldGroup('Ext4 Superblock', [
-        Field('stuff', 1024*4, hexencode, None)
+        Field('stuff', 1024*4, hexencode, None, None)
     ])
+
+
+def bytes_to_int(s):
+    missing = 4 - len(s)
+    s = '\x00' * missing + s
+    return struct.unpack('>I', s)[0]
 
 
 class MBR(Structure):
     _PARTITION = FieldGroup('Partition Table Entry', [
-        Field('status', 1, hextrunc, None),
-        Field('start_chs', 3, hextrunc, True),
-        Field('type', 1, hextrunc, None),
-        Field('end_chs', 3, hextrunc, None),
-        Field('start_lba', 4, hextrunc, None),
-        Field('length', 4, hextrunc, None),
+        Field('status', 1, hextrunc, None, None),
+        Field('start_chs', 3, hextrunc, None, None),
+        Field('type', 1, hextrunc, None, None),
+        Field('end_chs', 3, hextrunc, None, None),
+        Field('start_lba', 4, hextrunc, Superblock, bytes_to_int),
+        Field('length', 4, hextrunc, None, None),
     ])
     FIELDS = FieldGroup('Master Boot Record', [
-        Field('code', 446, hextrunc, None),
+        Field('code', 446, hextrunc, None, None),
         _PARTITION,
         _PARTITION,
         _PARTITION,
         _PARTITION,
-        Field('signature', 2, hextrunc, None),
+        Field('signature', 2, hextrunc, None, None),
     ])

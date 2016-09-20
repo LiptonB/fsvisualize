@@ -16,9 +16,9 @@ def hello_world():
 def visualize(path):
     components = [part for part in path.split('/') if part]
     with image.Image(app.config['IMAGE_PATH']) as im:
-        struct = structure.MBR(im, 0)
+        struct = structure.MBR.from_offset(im, 0)
         structs = [struct.as_dict()]
         for component in components:
-            struct = struct.sub_struct(component)
+            struct = struct.sub_struct(component).dereference()
             structs.append(struct.as_dict())
         return render_template('visualize.html', structs=structs)
