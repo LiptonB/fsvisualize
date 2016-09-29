@@ -146,8 +146,8 @@ def le_bytes_to_int(s):
 
 
 def block_offset(s):
-    block_offset = bytes_to_int(s)
-    byte_offset = block_offset * 2 + 1024
+    block_offset = le_bytes_to_int(s)
+    byte_offset = block_offset * 512 + 1024
     return byte_offset
 
 
